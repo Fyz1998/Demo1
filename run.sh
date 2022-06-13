@@ -1,0 +1,1 @@
+CUDA_VISIBLE_DEVICES=0 python lstm_main.py 2>&1 | tee log/output.log

@@ -5,14 +5,16 @@
 # @File : main.py
 
 import time
+import pdb
 import matplotlib.pyplot as plt
 import numpy as np
 import torch as t
+import torch
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from torch.utils.data import DataLoader
 from tqdm import *
 from dataset import TimeSeriesDataset
-from model import Forcast
+from model import Forcast, lstm_seq2seq
 from SCINet import SCINet
 from sklearn.preprocessing import MinMaxScaler
 
@@ -41,16 +43,19 @@ params = {
     'batch_size': 16,
     'lr': 0.001,
     'train_pro':0.8,
-    'dSample':10
+    'dSample':10,
+    'lstm_hidden_size':16,
 }
 
 
-# model = Forcast(params['history_step'],
-#                params['forecast_step'],
-#                params['hidden_size'],
-#                params['num_layers'],
-#                params['dropout_rate']
-# )
+"""
+model = Forcast(params['history_step'],
+               params['forecast_step'],
+               params['hidden_size'],
+               params['num_layers'],
+               params['dropout_rate']
+)
+
 
 model = SCINet(
     output_len=8,
@@ -69,10 +74,12 @@ model = SCINet(
     modified=True,
     RIN=False
 )
+"""
+
 
 # model = model.type(t.FloatTensor)
-# from torchsummary import summary
-# summary(model, input_size=(16,1,1), batch_size=16, device="cpu")
+from torchsummary import summary
+summary(model, input_size=(16,1,1), batch_size=16, device="cpu")
 
 
 optim = t.optim.AdamW(model.parameters(), lr=params['lr'],weight_decay=0.01)
@@ -87,16 +94,16 @@ trainLoader = DataLoader(trainset, params['batch_size'], shuffle= False, drop_la
 testLoader = DataLoader(testset, params['batch_size'], shuffle= False, drop_last=True)
 
 
-
 lossfunc = t.nn.MSELoss()
 
 def train():
     Metric = []
     for epoch in range(params['epochs']):
         model.train()
+        # pdb.set_trace()
         for X, y in tqdm(trainLoader):
             optim.zero_grad()
-            # X = t.unsqueeze(X, 3)
+            X = t.unsqueeze(X, 3)
             prediction = model(X)
             prediction = prediction.reshape(y.shape)
             loss = lossfunc(prediction, y)
@@ -109,9 +116,10 @@ def train():
         i = 0
         forecasts = list()
         oridata = list()
-        for X, y in testLoader:
+        for X, y in testLoader:    
             i+=1
-            # X = t.unsqueeze(X, 3)
+            X = t.unsqueeze(X, 3)
+            print(f'x shape: {X.shape}')
             prediction = model(X)
             prediction = prediction.reshape(y.shape)
             prediction = prediction.detach()
@@ -125,9 +133,9 @@ def train():
                 oridata.append(np.array(y))
 
             metrics += Metrics(prediction, y)
-
-        print(f'Epoch-{epoch}: MAE={metrics[0] / len(testLoader)};MSE={metrics[1] / len(testLoader)};'
-              f'RMSE={metrics[2] / len(testLoader)};NRMSE={metrics[3] / len(testLoader)}')
+        if epoch%10 ==0:
+            print(f'Epoch-{epoch}: MAE={metrics[0] / len(testLoader)};MSE={metrics[1] / len(testLoader)};'
+                  f'RMSE={metrics[2] / len(testLoader)};NRMSE={metrics[3] / len(testLoader)}')
 
         Metric.append(metrics)
 
